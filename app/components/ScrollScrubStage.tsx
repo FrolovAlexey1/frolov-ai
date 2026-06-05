@@ -45,7 +45,18 @@ export default function ScrollScrubStage() {
     let raf = 0;
     let maxScroll = 1;
     let started = false;
+    let curObjX = 50; // current subject framing (horizontal %), lerped
     const current = CLIPS.map(() => 0);
+
+    // Push the subject to the side OPPOSITE the text column per scroll band:
+    // hero centre, about/results/contact → right (text left); skills → left
+    // (text right). Anchors at p = 0 / .25 / .5 / .75 / 1.
+    const OBJ_ANCHORS = [50, 72, 80, 22, 70];
+    const subjectX = (p: number) => {
+      const seg = Math.min(OBJ_ANCHORS.length - 2, Math.max(0, Math.floor(p * 4)));
+      const f = p * 4 - seg;
+      return OBJ_ANCHORS[seg] + (OBJ_ANCHORS[seg + 1] - OBJ_ANCHORS[seg]) * f;
+    };
 
     const totalDur = () => durations.current.reduce((a, b) => a + b, 0);
 
@@ -61,6 +72,9 @@ export default function ScrollScrubStage() {
       if (total > 0) {
         const p = Math.min(1, Math.max(0, window.scrollY / maxScroll));
         const T = p * total;
+
+        // glide the subject framing toward the current band's target
+        curObjX += (subjectX(p) - curObjX) * 0.06;
 
         // cumulative end time of each clip
         const ends: number[] = [];
@@ -99,6 +113,7 @@ export default function ScrollScrubStage() {
           const v = videos.current[i];
           if (!v) continue;
           v.style.opacity = ops[i].toFixed(3);
+          v.style.objectPosition = `${curObjX.toFixed(1)}% 50%`;
           if (ops[i] > 0.001 && dur > 0) {
             current[i] += (local - current[i]) * LERP;
             if (Math.abs(v.currentTime - current[i]) > 0.01) {
@@ -167,11 +182,10 @@ export default function ScrollScrubStage() {
         ))}
       </div>
 
-      {/* Legibility scrims — keep the subject visible while text stays readable.
-          Desktop: darken the left column. Mobile: darken bottom where text sits. */}
-      <div className="absolute inset-0 bg-bg/45 md:bg-transparent" />
-      <div className="absolute inset-0 hidden bg-gradient-to-r from-bg via-bg/55 to-transparent md:block" />
-      <div className="absolute inset-0 bg-gradient-to-t from-bg via-bg/10 to-bg/40 md:from-bg/85 md:via-transparent md:to-bg/40" />
+      {/* Light global base only — each section adds its own directional scrim on
+          the text side (see DesktopExperience), so the subject stays visible. */}
+      <div className="absolute inset-0 bg-bg/25" />
+      <div className="absolute inset-0 bg-gradient-to-t from-bg/70 via-transparent to-bg/35" />
 
       {/* soft accent glow */}
       <div
